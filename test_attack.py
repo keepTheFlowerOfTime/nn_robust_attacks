@@ -8,14 +8,15 @@
 import tensorflow as tf
 import numpy as np
 import time
+import random
 
-from setup_cifar import CIFAR, CIFARModel
-from setup_mnist import MNIST, MNISTModel
-from setup_inception import ImageNet, InceptionModel
+from .setup_cifar import CIFAR, CIFARModel
+from .setup_mnist import MNIST, MNISTModel
+from .setup_inception import ImageNet, InceptionModel
 
-from l2_attack import CarliniL2
-from l0_attack import CarliniL0
-from li_attack import CarliniLi
+from .l2_attack import CarliniL2
+from .l0_attack import CarliniL0
+from .li_attack import CarliniLi
 
 
 def show(img):
@@ -47,6 +48,7 @@ def generate_data(data, samples, targeted=True, start=0, inception=False):
             if inception:
                 seq = random.sample(range(1,1001), 10)
             else:
+                #(0,1,2,3,4,5,6,7,8,9)
                 seq = range(data.test_labels.shape[1])
 
             for j in seq:
@@ -66,8 +68,8 @@ def generate_data(data, samples, targeted=True, start=0, inception=False):
 
 if __name__ == "__main__":
     with tf.Session() as sess:
-        data, model =  MNIST(), MNISTModel("models/mnist", sess)
-        #data, model =  CIFAR(), CIFARModel("models/cifar", sess)
+        #data, model =  MNIST(), MNISTModel("models/mnist", sess)
+        data, model =  CIFAR(), CIFARModel("models/cifar", sess)
         attack = CarliniL2(sess, model, batch_size=9, max_iterations=1000, confidence=0)
         #attack = CarliniL0(sess, model, max_iterations=1000, initial_const=10,
         #                   largest_const=15)
@@ -79,6 +81,7 @@ if __name__ == "__main__":
         timeend = time.time()
         
         print("Took",timeend-timestart,"seconds to run",len(inputs),"samples.")
+
 
         for i in range(len(adv)):
             print("Valid:")

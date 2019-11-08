@@ -13,9 +13,10 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras.optimizers import SGD
 
 import tensorflow as tf
-from setup_mnist import MNIST
-from setup_cifar import CIFAR
+from .setup_mnist import MNIST
+from .setup_cifar import CIFAR,CifarFix,CIFARModel,CIFARModel_express
 import os
+import nn_robust_attacks.verify
 
 def train(data, file_name, params, num_epochs=50, batch_size=128, train_temp=1, init=None):
     """
@@ -53,7 +54,8 @@ def train(data, file_name, params, num_epochs=50, batch_size=128, train_temp=1, 
         return tf.nn.softmax_cross_entropy_with_logits(labels=correct,
                                                        logits=predicted/train_temp)
 
-    sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True
+    )
     
     model.compile(loss=fn,
                   optimizer=sgd,
@@ -89,6 +91,7 @@ def train_distillation(data, file_name, params, num_epochs=50, batch_size=128, t
 
     # evaluate the labels at temperature t
     predicted = teacher.predict(data.train_data)
+    
     with tf.Session() as sess:
         y = sess.run(tf.nn.softmax(predicted/train_temp))
         print(y)
@@ -102,14 +105,56 @@ def train_distillation(data, file_name, params, num_epochs=50, batch_size=128, t
     predicted = student.predict(data.train_data)
 
     print(predicted)
+
+def train_ST(data,model,file_name,num_epochs=50,batch_size=128,train_temp=1,init=None):
+    train_model=model
+    def fn(correct, predicted):
+        return tf.nn.softmax_cross_entropy_with_logits(labels=correct,
+                                                       logits=predicted/train_temp)
+
+    sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True
+    )
     
-if not os.path.isdir('models'):
-    os.makedirs('models')
+    model.compile(loss=fn,
+                  optimizer=sgd,
+                  metrics=['accuracy'])
+    
+    model.fit(data.train_data, data.train_labels,
+              batch_size=batch_size,
+              validation_data=(data.validation_data, data.validation_labels),
+              nb_epoch=num_epochs,
+              shuffle=True)
 
-train(CIFAR(), "models/cifar", [64, 64, 128, 128, 256, 256], num_epochs=50)
-train(MNIST(), "models/mnist", [32, 32, 64, 64, 200, 200], num_epochs=50)
+    if file_name != None:
+        model.save(file_name)
 
-train_distillation(MNIST(), "models/mnist-distilled-100", [32, 32, 64, 64, 200, 200],
-                   num_epochs=50, train_temp=100)
-train_distillation(CIFAR(), "models/cifar-distilled-100", [64, 64, 128, 128, 256, 256],
-                   num_epochs=50, train_temp=100)
+    return model
+
+if __name__ == "__main__":
+    if not os.path.isdir('models'):
+        os.makedirs('models')
+
+    path='models/cifar_draft'
+    data=CifarFix('n','n',need_verify_data=False)
+    #train_ST(data,STModel.model(),'models/st_model_1',num_epochs=50)
+
+
+#for seed in verify.Seed:
+#    path='models/cifar_shuffle_{}'.format(seed)
+#    if os.path.exists(path): continue
+#    data=CifarFix('sn','sn',seed=seed)
+#    print('seed is {}'.format(seed))
+#    train(data,path,[64,64,128,128,256,256],num_epochs=50)
+#    with tf.Session() as sess:
+#        model=CIFARModel(path,sess)
+#        result=verify.test(sess,(data,model))
+#        np.save(path+'.eva',result)
+#train(CIFAR(), "models/cifar", [64, 64, 128, 128, 256, 256], num_epochs=50)
+#train(MNIST(), "models/mnist", [32, 32, 64, 64, 200, 200], num_epochs=50)
+
+
+
+#train_distillation(MNIST(), "models/mnist-distilled-100", [32, 32, 64, 64, 200, 200],
+#                   num_epochs=50, train_temp=100)
+#train_distillation(CIFAR(), "models/cifar-distilled-100", [64, 64, 128, 128, 256, 256],
+#                   num_epochs=50, train_temp=100)
